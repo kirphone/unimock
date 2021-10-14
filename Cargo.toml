@@ -1,0 +1,12 @@
+[package]
+name = "unimock"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-web = "3"
+log = "0.4"
+log4rs = { version = "1.0.0", features = ["console_appender", "rolling_file_appender", "size_trigger", "compound_policy"] }
+futures = "0.3"
