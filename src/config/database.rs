@@ -16,6 +16,6 @@ fn update(connection: &Connection) {
         .query_map([], |row| Ok(row.get(0).unwrap())).unwrap().next().unwrap().unwrap();
     for i in version..APPLICATION_VERSION {
         let query = fs::read_to_string(format!("{}.sql", i)).unwrap();
-        connection.execute(&query,[]);
+        connection.execute(&query,[]).unwrap();
     }
 }

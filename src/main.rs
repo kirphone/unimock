@@ -11,7 +11,7 @@ use actix_web::http::Method;
 use actix_web::middleware::normalize::TrailingSlash;
 use log4rs::Handle;
 use rusqlite::Connection;
-use std::sync::Mutex;
+use std::sync::{Mutex, RwLock};
 use crate::triggers::TriggerService;
 
 #[actix_web::main]
@@ -20,9 +20,9 @@ async fn main() -> io::Result<()> {
 
     let db_connection = Mutex::new(config::database::init());
 
-    let mut state = web::Data::new(AppState{
+    let state = web::Data::new(AppState{
         logger_handle: Mutex::new(config::logger::init_logger_handler()),
-        trigger_service: Mutex::new(TriggerService::new(&db_connection)),
+        trigger_service: RwLock::new(TriggerService::new(&db_connection)),
         db_connection,
     });
 
@@ -41,10 +41,10 @@ async fn main() -> io::Result<()> {
         .await
 }
 
-struct AppState{
+pub struct AppState{
     logger_handle: Mutex<Handle>,
     db_connection: Mutex<Connection>,
-    trigger_service: Mutex<TriggerService>
+    trigger_service: RwLock<TriggerService>
 }
 
 #[get("")]
