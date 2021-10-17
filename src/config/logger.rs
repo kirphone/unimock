@@ -12,7 +12,7 @@ const PRINT_PATTERN: &str = "{d(%Y-%m-%d %H:%M:%S%.3f)} {l} {M} {T} - {m}{n}";
 const LOG_FILE_PATH: &str = "logs/current.log";
 const MAX_LOG_FILE_SIZE: u64 = 10 * 1024 * 1024;
 const LOG_ROLLING_ARCHIVE_PATH: &str = "logs/{}.log.zip";
-const DEFAULT_LOG_LEVEL: LevelFilter = LevelFilter::Info;
+const DEFAULT_LOG_LEVEL: LevelFilter = LevelFilter::Debug;
 
 pub fn init_logger_handler() -> Handle {
     log4rs::init_config(build_config(DEFAULT_LOG_LEVEL)).unwrap()
