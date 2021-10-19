@@ -12,10 +12,11 @@ use log::{debug};
 const GET_TRIGGERS_QUERY: &str = "SELECT * FROM Triggers";
 const INSERT_TRIGGER_QUERY: &str = "INSERT INTO Triggers (type, expression, headers, comment, active) VALUES (?1,?2,?3,?4,?5)";
 const REMOVE_TRIGGER_QUERY: &str = "DELETE FROM Triggers WHERE id=?1";
+const UPDATE_TRIGGER_QUERY: &str = "UPDATE Triggers SET type=?1, expression=?2, headers=?3, comment=?4, active=?5 WHERE id=?6";
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Trigger {
-    #[serde(skip_deserializing)]
+    #[serde(default)]
     id: u32,
     msg_type: String,
     expression: String,
@@ -54,27 +55,33 @@ impl TriggerService {
             }).unwrap().map(|item| { item.unwrap() }).collect()
     }
 
-    fn add_trigger(service: &RwLock<TriggerService>, connection: &Mutex<Connection>, mut trigger: Trigger) -> rusqlite::Result<usize> {
+    fn add_trigger(service: &RwLock<TriggerService>, connection: &Mutex<Connection>, mut trigger: Trigger) -> rusqlite::Result<u32> {
         let locked_connection = connection.lock().unwrap();
-        let result = locked_connection.execute(INSERT_TRIGGER_QUERY, params![
+        locked_connection.execute(INSERT_TRIGGER_QUERY, params![
             &trigger.msg_type, &trigger.expression, unbuild_headers(&trigger.headers), &trigger.description, &trigger.is_active
-        ]);
-
-        if result.is_ok() {
-            trigger.id = locked_connection.last_insert_rowid() as u32;
-            std::mem::drop(locked_connection);
-            service.write().unwrap().triggers.insert(trigger.id, trigger);
-        }
-        result
+        ])?;
+        trigger.id = locked_connection.last_insert_rowid() as u32;
+        let res = trigger.id;
+        std::mem::drop(locked_connection);
+        service.write().unwrap().triggers.insert(trigger.id, trigger);
+        Ok(res)
     }
 
-    fn remove_trigger(service: &RwLock<TriggerService>, connection: &Mutex<Connection>, id: u32) -> rusqlite::Result<usize> {
-        let result = connection.lock().unwrap().execute(REMOVE_TRIGGER_QUERY, params![id]);
+    fn remove_trigger(service: &RwLock<TriggerService>, connection: &Mutex<Connection>, id: u32) -> rusqlite::Result<()> {
+        connection.lock().unwrap().execute(REMOVE_TRIGGER_QUERY, params![id])?;
+        service.write().unwrap().triggers.remove(&id);
+        Ok(())
+    }
 
-        if result.is_ok() {
-            service.write().unwrap().triggers.remove(&id);
+    fn update_trigger(service: &RwLock<TriggerService>, connection: &Mutex<Connection>, trigger: Trigger) -> rusqlite::Result<()> {
+        if !service.read().unwrap().triggers.contains_key(&trigger.id){
+            return Err(rusqlite::Error::InvalidColumnName(format!("Не найден триггер с id={}", &trigger.id)))
         }
-        result
+        connection.lock().unwrap().execute(UPDATE_TRIGGER_QUERY, params![
+            &trigger.msg_type, &trigger.expression, unbuild_headers(&trigger.headers), &trigger.description, &trigger.is_active, &trigger.id
+        ])?;
+        service.write().unwrap().triggers.insert(trigger.id, trigger);
+        Ok(())
     }
 }
 
@@ -87,9 +94,7 @@ fn build_headers(headers: String) -> BTreeMap<String, String> {
 }
 
 fn unbuild_headers(headers: &BTreeMap<String, String>) -> String {
-    debug!("Cериализуем хедеры: {:?}", headers);
     let result = headers.iter().fold(String::new(), |acc, (key, value)| format!("{}{}={},", acc, key, value));
-    debug!("Получаем: {}", result);
     result
 }
 
@@ -98,12 +103,12 @@ fn deserialize_headers<'de, D>(deserializer: D) -> Result<BTreeMap<String, Strin
         D: Deserializer<'de>,
 {
     let input: String = Deserialize::deserialize(deserializer)?;
-    debug!("Десериализуем хедеры из строки: {}", input);
     let res_map = build_headers(input);
-    debug!("Получаем хедеры: {:?}", res_map);
+    debug!("Десериализация хедеров: {:?}", res_map);
     Ok(res_map)
 }
 
 fn serialize_headers<S>(headers: &BTreeMap<String, String>, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    debug!("Сериализация хедеров: {:?}", headers);
     serializer.serialize_str(&unbuild_headers(headers))
 }

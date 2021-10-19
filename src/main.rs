@@ -1,5 +1,6 @@
 mod config;
 mod triggers;
+mod templates;
 
 use std::io;
 use actix_web::{HttpServer, App, Responder, HttpResponse, get, web, middleware};
@@ -29,7 +30,7 @@ async fn main() -> io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(state.clone())
-            .wrap(Logger::new(r#"From %a "%r" status=%s %Dms"#))
+            .wrap(Logger::new(r#" Executed from %a "%r" status=%s %Dms"#))
             .wrap(middleware::NormalizePath::new(TrailingSlash::Trim))
             .service(web::scope("/TStub").service(index)
                 .service(web::scope("/control")
