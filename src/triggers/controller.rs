@@ -55,6 +55,6 @@ pub async fn update_trigger(trigger: web::Json<Trigger>, data: web::Data<AppStat
 }
 
 #[derive(Deserialize)]
-struct RemoveTriggerReq{
+pub struct RemoveTriggerReq{
     id: u32
 }

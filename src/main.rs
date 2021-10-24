@@ -14,6 +14,7 @@ use log4rs::Handle;
 use rusqlite::Connection;
 use std::sync::{Mutex, RwLock};
 use crate::triggers::TriggerService;
+use crate::templates::TemplateService;
 
 #[actix_web::main]
 async fn main() -> io::Result<()> {
@@ -24,6 +25,7 @@ async fn main() -> io::Result<()> {
     let state = web::Data::new(AppState{
         logger_handle: Mutex::new(config::logger::init_logger_handler()),
         trigger_service: RwLock::new(TriggerService::new(&db_connection)),
+        template_service: RwLock::new(TemplateService::new(&db_connection)),
         db_connection,
     });
 
@@ -34,7 +36,8 @@ async fn main() -> io::Result<()> {
             .wrap(middleware::NormalizePath::new(TrailingSlash::Trim))
             .service(web::scope("/TStub").service(index)
                 .service(web::scope("/control")
-                    .service(web::scope("/triggers").configure(triggers::controller::config))))
+                    .service(web::scope("/triggers").configure(triggers::controller::config))
+                    .service(web::scope("/templates").configure(templates::controller::config))))
             .default_service(web::route().method(Method::GET))
     })
         .bind(format!("127.0.0.1:{}", ports.get_port()))?
@@ -45,7 +48,8 @@ async fn main() -> io::Result<()> {
 pub struct AppState{
     logger_handle: Mutex<Handle>,
     db_connection: Mutex<Connection>,
-    trigger_service: RwLock<TriggerService>
+    trigger_service: RwLock<TriggerService>,
+    template_service: RwLock<TemplateService>
 }
 
 #[get("")]
